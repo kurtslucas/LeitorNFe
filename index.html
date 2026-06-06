@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XML to DANFe - Nota Fiscal Eletrônica</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            min-height: 100vh;
+            padding: 30px 20px;
+        }
+
+        .app-container {
+            max-width: 1300px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .upload-card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+
+        .upload-area {
+            border: 2px dashed #cbd5e0;
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f8fafc;
+        }
+
+        .upload-area:hover, .upload-area.drag-over {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            color: #3b82f6;
+            margin-bottom: 16px;
+        }
+
+        .file-info {
+            margin-top: 20px;
+            padding: 12px 16px;
+            background: #f1f5f9;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #059669;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid #cbd5e0;
+            color: #475569;
+        }
+
+        .btn-outline:hover {
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+
+        .danfe-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .danfe-toolbar {
+            padding: 12px 20px;
+            background: #f1f5f9;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .danfe {
+            font-family: 'Courier New', 'Lucida Console', monospace;
+            font-size: 8.5px;
+            line-height: 1.25;
+            color: #000;
+            background: white;
+            position: relative;
+            padding: 12px;
+        }
+
+        .danfe table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2px 0;
+        }
+
+        .danfe td, .danfe th {
+            border: 0.5px solid #000;
+            padding: 3px 4px;
+            vertical-align: top;
+        }
+
+        .danfe th {
+            background: #e5e7eb;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .section-title {
+            background: #d1d5db;
+            font-weight: bold;
+            padding: 3px 5px;
+            margin: 6px 0 3px 0;
+            font-size: 9px;
+        }
+
+        .info-row {
+            display: flex;
+            flex-wrap: wrap;
+            border-bottom: 0.5px solid #ccc;
+            padding: 2px 0;
+        }
+
+        .info-label {
+            font-weight: bold;
+            width: 130px;
+            flex-shrink: 0;
+        }
+
+        .two-columns {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .column {
+            flex: 1;
+        }
+
+        .impostos-linha {
+            display: flex;
+            flex-wrap: wrap;
+            border: 0.5px solid #000;
+            border-bottom: none;
+        }
+
+        .impostos-linha:last-child {
+            border-bottom: 0.5px solid #000;
+        }
+
+        .imposto-card {
+            flex: 1;
+            min-width: 110px;
+            border-right: 0.5px solid #aaa;
+            border-bottom: 0.5px solid #aaa;
+            padding: 4px 6px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .impostos-linha:last-child .imposto-card {
+            border-bottom: none;
+        }
+
+        .imposto-card:last-child {
+            border-right: none;
+        }
+
+        .imposto-label {
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        .imposto-value {
+            text-align: right;
+            margin-left: 8px;
+            white-space: nowrap;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .font-bold {
+            font-weight: bold;
+        }
+
+        .watermark {
+            position: absolute;
+            top: 35%;
+            left: 5%;
+            right: 5%;
+            text-align: center;
+            font-size: 42px;
+            font-weight: bold;
+            color: rgba(220, 38, 38, 0.12);
+            transform: rotate(-25deg);
+            pointer-events: none;
+            white-space: pre;
+            z-index: 10;
+        }
+
+        .footer-dashed {
+            margin-top: 10px;
+            border-top: 2px dashed #000;
+            padding-top: 5px;
+            text-align: center;
+            font-size: 7px;
+        }
+
+        .barcode-container svg {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Loading para PDF */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            color: white;
+            font-size: 18px;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+                margin: 0;
+            }
+            .upload-card, .danfe-toolbar, .btn-group {
+                display: none;
+            }
+            .danfe-container {
+                box-shadow: none;
+            }
+            .danfe {
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="header">
+        <h1><i class="fas fa-file-invoice"></i> XML to DANFe</h1>
+        <p>Gerador de DANFE a partir do XML da NFe - Layout SEFAZ</p>
+    </div>
+
+    <div class="upload-card">
+        <div class="upload-area" id="uploadArea">
+            <i class="fas fa-cloud-upload-alt upload-icon"></i>
+            <h3>Clique ou arraste o arquivo XML da NFe</h3>
+            <p>Arquivo .xml no padrão da SEFAZ</p>
+            <input type="file" id="xmlFileInput" accept=".xml" style="display: none;">
+        </div>
+        <div id="fileInfo" class="file-info" style="display: none;">
+            <div><i class="fas fa-file-code"></i> <span id="fileName"></span></div>
+            <div class="btn-group">
+                <button class="btn btn-primary" id="gerarDanfeBtn"><i class="fas fa-eye"></i> Gerar DANFE</button>
+                <button class="btn btn-secondary" id="baixarPdfBtn" disabled><i class="fas fa-download"></i> Baixar PDF (100% fiel)</button>
+                <button class="btn btn-outline" id="limparBtn"><i class="fas fa-trash-alt"></i> Limpar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="danfe-container" id="danfeContainer" style="display: none;">
+        <div class="danfe-toolbar">
+            <span><i class="fas fa-print"></i> DANFE - Documento Auxiliar da NFe</span>
+            <span id="statusBadge"></span>
+        </div>
+        <div id="danfeContent"></div>
+    </div>
+</div>
+
+<script>
+    let currentXmlDoc = null;
+    let isAutorizado = true;
+    let currentDanfeElement = null;
+
+    const uploadArea = document.getElementById('uploadArea');
+    const xmlInput = document.getElementById('xmlFileInput');
+    const fileInfoDiv = document.getElementById('fileInfo');
+    const fileNameSpan = document.getElementById('fileName');
+    const gerarBtn = document.getElementById('gerarDanfeBtn');
+    const pdfBtn = document.getElementById('baixarPdfBtn');
+    const limparBtn = document.getElementById('limparBtn');
+    const danfeContainer = document.getElementById('danfeContainer');
+    const danfeContent = document.getElementById('danfeContent');
+    const statusBadge = document.getElementById('statusBadge');
+
+    uploadArea.addEventListener('click', () => xmlInput.click());
+    uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('drag-over'); });
+    uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag-over'));
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file && file.name.endsWith('.xml')) processFile(file);
+        else alert('Selecione um arquivo XML válido');
+    });
+    xmlInput.addEventListener('change', (e) => { if (e.target.files[0]) processFile(e.target.files[0]); });
+    limparBtn.addEventListener('click', () => { currentXmlDoc = null; fileInfoDiv.style.display = 'none'; danfeContainer.style.display = 'none'; xmlInput.value = ''; pdfBtn.disabled = true; });
+    gerarBtn.addEventListener('click', () => { if (currentXmlDoc) renderDanfe(currentXmlDoc); });
+    
+    // PDF 100% fiel usando html2canvas + jsPDF
+    pdfBtn.addEventListener('click', async () => {
+        if (!currentDanfeElement) {
+            alert('Nenhum DANFE gerado para exportar');
+            return;
+        }
+        
+        // Mostrar loading
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'loading-overlay';
+        loadingDiv.innerHTML = '<div class="spinner"></div><div>Gerando PDF fiel à visualização...</div>';
+        document.body.appendChild(loadingDiv);
+        
+        try {
+            const element = currentDanfeElement.cloneNode(true);
+            element.style.width = '800px';
+            element.style.padding = '20px';
+            element.style.backgroundColor = 'white';
+            
+            // Garantir que o SVG do código de barras seja copiado corretamente
+            const originalSvg = currentDanfeElement.querySelector('.barcode-container svg');
+            const clonedSvg = element.querySelector('.barcode-container svg');
+            if (originalSvg && clonedSvg) {
+                const svgData = originalSvg.outerHTML;
+                clonedSvg.parentNode.innerHTML = svgData;
+            }
+            
+            document.body.appendChild(element);
+            element.style.position = 'absolute';
+            element.style.top = '-9999px';
+            element.style.left = '0';
+            
+            // Aguardar renderização
+            await new Promise(r => setTimeout(r, 200));
+            
+            const canvas = await html2canvas(element, {
+                scale: 2,
+                backgroundColor: '#ffffff',
+                logging: false,
+                useCORS: true
+            });
+            
+            document.body.removeChild(element);
+            
+            const imgData = canvas.toDataURL('image/png');
+            const { jsPDF } = window.jspdf;
+            
+            const imgWidth = 210; // A4 width in mm
+            const pageHeight = 297;
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+            
+            let pdf = new jsPDF('p', 'mm', 'a4');
+            let position = 0;
+            
+            if (imgHeight <= pageHeight) {
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+            } else {
+                let heightLeft = imgHeight;
+                let currentPage = 1;
+                while (heightLeft > 0) {
+                    if (currentPage > 1) pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+                    heightLeft -= pageHeight;
+                    position -= pageHeight;
+                    currentPage++;
+                }
+            }
+            
+            const nNF = getTagTextFromNode(currentXmlDoc?.getElementsByTagName('ide')[0], 'nNF') || 'nota';
+            pdf.save(`danfe_nfe_${nNF}.pdf`);
+            
+        } catch (error) {
+            console.error('Erro ao gerar PDF:', error);
+            alert('Erro ao gerar PDF: ' + error.message);
+        } finally {
+            document.body.removeChild(loadingDiv);
+        }
+    });
+
+    function processFile(file) {
+        fileNameSpan.textContent = file.name;
+        fileInfoDiv.style.display = 'flex';
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const parser = new DOMParser();
+            currentXmlDoc = parser.parseFromString(e.target.result, 'text/xml');
+            const cStat = getTagText('cStat');
+            isAutorizado = (cStat === '100');
+            renderDanfe(currentXmlDoc);
+            pdfBtn.disabled = false;
+        };
+        reader.readAsText(file);
+    }
+
+    function getTagText(tagName, parent = currentXmlDoc) {
+        const node = parent?.getElementsByTagName(tagName)?.[0];
+        return node ? node.textContent?.trim() || '' : '';
+    }
+
+    function getTagTextFromNode(parent, tagName) {
+        const node = parent?.getElementsByTagName(tagName)?.[0];
+        return node ? node.textContent?.trim() || '' : '';
+    }
+
+    function formatMoney(value) {
+        if (!value || value === '0') return '0,00';
+        const num = parseFloat(value);
+        if (isNaN(num)) return '0,00';
+        return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function formatDate(dateStr) {
+        if (!dateStr) return '';
+        let d = dateStr;
+        if (d.includes('-')) {
+            const parts = d.split('T')[0].split('-');
+            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+        return d;
+    }
+
+    function formatDateTime(dateStr) {
+        if (!dateStr) return '';
+        let d = dateStr;
+        let datePart = d, timePart = '';
+        if (d.includes('T')) {
+            [datePart, timePart] = d.split('T');
+            timePart = timePart.substring(0, 5);
+        }
+        const dateFmt = formatDate(datePart);
+        return timePart ? `${dateFmt} ${timePart}` : dateFmt;
+    }
+
+    function getIE(emit) {
+        let ie = getTagTextFromNode(emit, 'IE');
+        if (ie) return ie;
+        return getTagTextFromNode(emit, 'IEST') || '';
+    }
+
+    // CORREÇÃO: Busca correta do ICMS do produto (suporta namespaces)
+    function getProdICMS(prod) {
+        // Busca direta por tag ICMS (considerando namespace)
+        let icmsGroup = null;
+        const children = prod.childNodes;
+        for (let child of children) {
+            if (child.nodeName === 'imposto' || child.nodeName === 'ICMS') {
+                icmsGroup = child;
+                break;
+            }
+        }
+        
+        // Se não achou, tenta via getElementsByTagName
+        if (!icmsGroup) {
+            const imposto = prod.getElementsByTagName('imposto')[0];
+            icmsGroup = imposto ? imposto.getElementsByTagName('ICMS')[0] : null;
+        }
+        
+        if (!icmsGroup) return null;
+        
+        // Procura por qualquer tipo de ICMS
+        const tipos = ['ICMS00', 'ICMS20', 'ICMS40', 'ICMS51', 'ICMS60', 'ICMS90', 'ICMS10', 'ICMS30', 'ICMS70'];
+        for (let tipo of tipos) {
+            let node = null;
+            // Tenta getElementsByTagName primeiro
+            node = icmsGroup.getElementsByTagName(tipo)[0];
+            if (node) return node;
+        }
+        return null;
+    }
+
+    function getProdIPI(prod) {
+        const imposto = prod.getElementsByTagName('imposto')[0];
+        if (!imposto) return null;
+        const ipiGroup = imposto.getElementsByTagName('IPI')[0];
+        if (!ipiGroup) return null;
+        
+        const ipiTrib = ipiGroup.getElementsByTagName('IPITrib')[0];
+        if (ipiTrib) return ipiTrib;
+        
+        const ipiNT = ipiGroup.getElementsByTagName('IPINT')[0];
+        return ipiNT;
+    }
+
+    async function renderDanfe(xmlDoc) {
+        const emit = xmlDoc.getElementsByTagName('emit')[0];
+        const dest = xmlDoc.getElementsByTagName('dest')[0];
+        const ide = xmlDoc.getElementsByTagName('ide')[0];
+        const total = xmlDoc.getElementsByTagName('total')[0];
+        const icmsTot = total ? total.getElementsByTagName('ICMSTot')[0] : null;
+        const transporta = xmlDoc.getElementsByTagName('transporta')[0];
+        const veiculo = xmlDoc.getElementsByTagName('veiculo')[0];
+        const volumes = xmlDoc.getElementsByTagName('vol');
+        const fat = xmlDoc.getElementsByTagName('fat')[0];
+        const dupList = xmlDoc.getElementsByTagName('dup');
+        const infAdic = xmlDoc.getElementsByTagName('infAdic')[0];
+        const infNFe = xmlDoc.getElementsByTagName('infNFe')[0];
+        const localEntrega = xmlDoc.getElementsByTagName('localEntrega')[0];
+        const chave = infNFe ? infNFe.getAttribute('Id')?.replace('NFe', '') : '';
+        const detList = xmlDoc.getElementsByTagName('det');
+
+        const barcodeDivId = 'barcode_' + Math.random().toString(36).substr(2, 8);
+        
+        let html = `<div class="danfe" id="danfePrint" style="position: relative;">`;
+        if (!isAutorizado) {
+            html += `<div class="watermark">SEM VALOR FISCAL<br>NÃO AUTORIZADO</div>`;
+        }
+
+        // 1 - CANHOTO
+        html += `<div style="border: 1px solid #000; margin-bottom: 6px; padding: 4px;">`;
+        html += `<div style="font-size:7px;"><strong>RECEBEMOS DE ${getTagTextFromNode(emit, 'xNome')} OS PRODUTOS CONSTANTES DA NOTA FISCAL ELETRÔNICA INDICADA ABAIXO.</strong></div>`;
+        html += `<div style="display:flex; justify-content:space-between; flex-wrap:wrap; margin-top:2px;">`;
+        html += `<span>EMISSÃO: ${formatDateTime(getTagTextFromNode(ide, 'dhEmi') || getTagTextFromNode(ide, 'dEmi'))}</span>`;
+        html += `<span>VALOR TOTAL: R$ ${formatMoney(getTagTextFromNode(icmsTot, 'vNF'))}</span>`;
+        html += `<span>DESTINATÁRIO: ${getTagTextFromNode(dest, 'xNome')?.substring(0, 40)}</span>`;
+        html += `</div><div style="border-top:0.5px dashed #000; margin:3px 0;"></div>`;
+        html += `<div style="text-align:center; font-size:7px;"><strong>IDENTIFICAÇÃO E ASSINATURA DO RECEBEDOR</strong></div>`;
+        html += `</div>`;
+
+        // 2 - EMITENTE + DANFE + NF
+        html += `<table style="margin-bottom:4px;">`;
+        html += `<tr><td style="width:65%; vertical-align:top;">`;
+        html += `<strong>${getTagTextFromNode(emit, 'xNome')}</strong><br>`;
+        html += `CNPJ: ${getTagTextFromNode(emit, 'CNPJ')}<br>`;
+        html += `IE: ${getIE(emit)}<br>`;
+        html += `${getTagTextFromNode(emit, 'xLgr')}, ${getTagTextFromNode(emit, 'nro')} ${getTagTextFromNode(emit, 'xCpl')}<br>`;
+        const ufEmit = getTagTextFromNode(emit, 'UF');
+        html += `${getTagTextFromNode(emit, 'xBairro')} - ${getTagTextFromNode(emit, 'xMun')}/${ufEmit}<br>`;
+        html += `CEP: ${getTagTextFromNode(emit, 'CEP')} Fone: ${getTagTextFromNode(emit, 'fone')}`;
+        html += `</td><td style="width:35%; text-align:center; vertical-align:middle;">`;
+        html += `<div style="font-weight:bold; font-size:14px;">DANFE</div>`;
+        html += `<div style="font-size:6px;">DOCUMENTO AUXILIAR DA NOTA FISCAL ELETRÔNICA</div>`;
+        html += `<div style="margin-top:4px;">0 - ENTRADA<br>1 - SAÍDA</div>`;
+        html += `<div style="border:1px solid #000; width:30px; margin:2px auto; text-align:center;">${getTagTextFromNode(ide, 'tpNF') || ''}</div>`;
+        html += `</td></tr>`;
+        html += `<tr><td colspan="2"><div style="text-align:center;"><strong>NÚMERO: ${getTagTextFromNode(ide, 'nNF')}  SÉRIE: ${getTagTextFromNode(ide, 'serie')}  FOLHA: 1/1</strong></div></td></tr>`;
+        html += `</table>`;
+
+        // Chave e código de barras
+        html += `<div style="margin:4px 0;">`;
+        html += `<div style="background:#e5e7eb; padding:2px; text-align:center; font-weight:bold;">CHAVE DE ACESSO</div>`;
+        html += `<div style="text-align:center; font-size:7px; word-break:break-all;">${chave}</div>`;
+        html += `<div class="barcode-container" style="text-align:center; margin:4px 0;"><svg id="${barcodeDivId}" style="height:35px; width:100%;"></svg></div>`;
+        html += `<div style="text-align:center; font-size:6px;">Consulta de autenticidade no portal nacional da NF-e www.nfe.fazenda.gov.br/portal ou no site da SEFAZ autorizadora</div>`;
+        html += `</div>`;
+
+        // 3 - DESTINATÁRIO
+        html += `<div class="section-title">DESTINATÁRIO / REMETENTE</div>`;
+        html += `<div class="info-row"><span class="info-label">NOME / RAZÃO SOCIAL:</span><span>${getTagTextFromNode(dest, 'xNome') || ''}</span></div>`;
+        html += `<div class="info-row"><span class="info-label">CNPJ/CPF:</span><span>${getTagTextFromNode(dest, 'CNPJ') || getTagTextFromNode(dest, 'CPF') || ''}</span></div>`;
+        html += `<div class="info-row"><span class="info-label">INSCRIÇÃO ESTADUAL:</span><span>${getTagTextFromNode(dest, 'IE') || ''}</span></div>`;
+        html += `<div class="info-row"><span class="info-label">ENDEREÇO:</span><span>${getTagTextFromNode(dest, 'xLgr') || ''}, ${getTagTextFromNode(dest, 'nro') || ''} ${getTagTextFromNode(dest, 'xCpl') || ''} - ${getTagTextFromNode(dest, 'xBairro') || ''} - ${getTagTextFromNode(dest, 'xMun') || ''}/${getTagTextFromNode(dest, 'UF') || ''}</span></div>`;
+        html += `<div class="info-row"><span class="info-label">CEP:</span><span>${getTagTextFromNode(dest, 'CEP') || ''}</span></div>`;
+        html += `<div class="info-row"><span class="info-label">FONE/FAX:</span><span>${getTagTextFromNode(dest, 'fone') || ''}</span></div>`;
+
+        // 4 - LOCAL ENTREGA
+        if (localEntrega) {
+            html += `<div class="section-title">LOCAL DE ENTREGA</div>`;
+            html += `<div class="info-row"><span class="info-label">NOME / RAZÃO SOCIAL:</span><span>${getTagTextFromNode(localEntrega, 'xNome') || ''}</span></div>`;
+            html += `<div class="info-row"><span class="info-label">CNPJ/CPF:</span><span>${getTagTextFromNode(localEntrega, 'CNPJ') || getTagTextFromNode(localEntrega, 'CPF') || ''}</span></div>`;
+            html += `<div class="info-row"><span class="info-label">ENDEREÇO:</span><span>${getTagTextFromNode(localEntrega, 'xLgr') || ''}, ${getTagTextFromNode(localEntrega, 'nro') || ''} - ${getTagTextFromNode(localEntrega, 'xBairro') || ''} - ${getTagTextFromNode(localEntrega, 'xMun') || ''}/${getTagTextFromNode(localEntrega, 'UF') || ''}</span></div>`;
+        }
+
+        // 5 - FATURA
+        if (fat || dupList.length > 0) {
+            html += `<div class="section-title">FATURA / DUPLICATA</div>`;
+            if (fat) {
+                html += `<div class="info-row"><span class="info-label">FATURA Nº:</span><span>${getTagTextFromNode(fat, 'nFat') || ''}</span></div>`;
+                html += `<div class="info-row"><span class="info-label">VALOR ORIGINAL:</span><span>R$ ${formatMoney(getTagTextFromNode(fat, 'vOrig'))}</span></div>`;
+                html += `<div class="info-row"><span class="info-label">DESCONTO:</span><span>R$ ${formatMoney(getTagTextFromNode(fat, 'vDesc'))}</span></div>`;
+                html += `<div class="info-row"><span class="info-label">VALOR LÍQUIDO:</span><span>R$ ${formatMoney(getTagTextFromNode(fat, 'vLiq'))}</span></div>`;
+            }
+            if (dupList.length > 0) {
+                html += `<table style="margin-top:4px; width: auto; min-width: 300px;"><thead><tr><th>Nº DUPLICATA</th><th>VENCIMENTO</th><th>VALOR</th></tr></thead><tbody>`;
+                for (let dup of dupList) {
+                    html += `<tr><td class="text-center">${getTagTextFromNode(dup, 'nDup')}</td><td class="text-center">${formatDate(getTagTextFromNode(dup, 'dVenc'))}</td><td class="text-right">R$ ${formatMoney(getTagTextFromNode(dup, 'vDup'))}</td></tr>`;
+                }
+                html += `</tbody></table>`;
+            }
+        }
+
+        // 6 - CÁLCULO DO IMPOSTO
+        html += `<div class="section-title">CÁLCULO DO IMPOSTO</div>`;
+        
+        const vBC = formatMoney(getTagTextFromNode(icmsTot, 'vBC'));
+        const vICMS = formatMoney(getTagTextFromNode(icmsTot, 'vICMS'));
+        const vBCST = formatMoney(getTagTextFromNode(icmsTot, 'vBCST'));
+        const vST = formatMoney(getTagTextFromNode(icmsTot, 'vST'));
+        const vProd = formatMoney(getTagTextFromNode(icmsTot, 'vProd'));
+        const vFrete = formatMoney(getTagTextFromNode(icmsTot, 'vFrete'));
+        const vSeg = formatMoney(getTagTextFromNode(icmsTot, 'vSeg'));
+        const vDesc = formatMoney(getTagTextFromNode(icmsTot, 'vDesc'));
+        const vOutro = formatMoney(getTagTextFromNode(icmsTot, 'vOutro'));
+        const vIPI = formatMoney(getTagTextFromNode(icmsTot, 'vIPI'));
+        const vNF = formatMoney(getTagTextFromNode(icmsTot, 'vNF'));
+        
+        html += `<div class="impostos-linha">`;
+        html += `<div class="imposto-card"><span class="imposto-label">BASE ICMS</span><span class="imposto-value">R$ ${vBC}</span></div>`;
+        html += `<div class="imposto-card"><span class="imposto-label">VALOR ICMS</span><span class="imposto-value">R$ ${vICMS}</span></div>`;
+        html += `<div class="imposto-card"><span class="imposto-label">BASE ICMS ST</span><span class="imposto-value">R$ ${vBCST}</span></div>`;
+        html += `<div class="imposto-card"><span class="imposto-label">VALOR ICMS ST</span><span class="imposto-value">R$ ${vST}</span></div>`;
+        html += `<div class="imposto-card"><span class="imposto-label">TOTAL PRODUTOS</span><span class="imposto-value">R$ ${vProd}</span></div>`;
+        html += `</div>`;
+        
+        html += `<div class="impostos-linha">`;
+        html += `<div class="imposto-card"><span class="imposto-label">FRETE</span><span class="imposto-value">R$ ${vFrete}</span></div>`;
+        html += `<div class="imposto-card"><span class="imposto-label">SEGURO</span><span class="imposto-value">R$ ${vSeg}</span></div>`;
+        html += `<div class="imposto-card"><span class="imposto-label">DESCONTO</span><span class="imposto-value">R$ ${vDesc}</span></div>`;
+        html += `<div class="imposto-card"><span class="imposto-label">OUTRAS DESP</span><span class="imposto-value">R$ ${vOutro}</span></div>`;
+        html += `<div class="imposto-card"><span class="imposto-label">TOTAL IPI</span><span class="imposto-value">R$ ${vIPI}</span></div>`;
+        html += `<div class="imposto-card"><span class="imposto-label">TOTAL NOTA</span><span class="imposto-value">R$ ${vNF}</span></div>`;
+        html += `</div>`;
+
+        // 7 - TRANSPORTADOR
+        html += `<div class="section-title">TRANSPORTADOR / VOLUMES TRANSPORTADOS</div>`;
+        
+        const modFrete = getTagTextFromNode(transporta, 'modFrete');
+        let fretePorConta = 'Sem Frete';
+        if (modFrete === '0') fretePorConta = 'Emitente';
+        else if (modFrete === '1') fretePorConta = 'Destinatário';
+        else if (modFrete === '2') fretePorConta = 'Terceiros';
+        else if (modFrete === '3') fretePorConta = 'Próprio Emitente';
+        else if (modFrete === '4') fretePorConta = 'Próprio Destinatário';
+        
+        html += `<div class="two-columns">`;
+        html += `<div class="column"><span class="info-label">NOME / RAZÃO SOCIAL:</span> ${getTagTextFromNode(transporta, 'xNome') || ''}</div>`;
+        html += `<div class="column"><span class="info-label">FRETE POR CONTA:</span> ${fretePorConta}</div>`;
+        html += `</div>`;
+        
+        html += `<div class="two-columns">`;
+        html += `<div class="column"><span class="info-label">CNPJ / CPF:</span> ${getTagTextFromNode(transporta, 'CNPJ') || getTagTextFromNode(transporta, 'CPF') || ''}</div>`;
+        html += `<div class="column"><span class="info-label">CÓDIGO ANTT:</span> ${getTagTextFromNode(veiculo, 'RNTC') || ''}</div>`;
+        html += `</div>`;
+        
+        html += `<div class="two-columns">`;
+        html += `<div class="column"><span class="info-label">ENDEREÇO:</span> ${getTagTextFromNode(transporta, 'xEnder') || ''} - ${getTagTextFromNode(transporta, 'xMun') || ''}/${getTagTextFromNode(transporta, 'UF') || ''}</div>`;
+        if (veiculo) {
+            html += `<div class="column"><span class="info-label">PLACA VEÍCULO / UF:</span> ${getTagTextFromNode(veiculo, 'placa') || ''} - ${getTagTextFromNode(veiculo, 'UF') || ''}</div>`;
+        } else {
+            html += `<div class="column"></div>`;
+        }
+        html += `</div>`;
+        
+        html += `<div class="info-row"><span class="info-label">INSCRIÇÃO ESTADUAL:</span> ${getTagTextFromNode(transporta, 'IE') || ''}</div>`;
+        
+        if (volumes.length > 0) {
+            html += `<table style="margin-top:4px;"><thead><tr><th>Qtd</th><th>Espécie</th><th>Marca</th><th>Número</th><th>Peso Bruto</th><th>Peso Líquido</th></tr></thead><tbody>`;
+            for (let vol of volumes) {
+                html += `<tr><td class="text-center">${getTagTextFromNode(vol, 'qVol')}</td><td class="text-center">${getTagTextFromNode(vol, 'esp') || ''}</td><td class="text-center">${getTagTextFromNode(vol, 'marca') || ''}</td><td class="text-center">${getTagTextFromNode(vol, 'nVol') || ''}</td><td class="text-right">${getTagTextFromNode(vol, 'pesoB') || ''}</td><td class="text-right">${getTagTextFromNode(vol, 'pesoL') || ''}</td></tr>`;
+            }
+            html += `</tbody></table>`;
+        }
+
+        // 8 - PRODUTOS (COM CORREÇÃO PARA IMPOSTOS)
+        html += `<div class="section-title">DADOS DOS PRODUTOS / SERVIÇOS</div>`;
+        html += `<table style="font-size:7px;">`;
+        html += `<thead>`;
+        html += `<tr>`;
+        html += `<th>Código</th><th>Descrição</th><th>NCM</th><th>CFOP</th><th>UN</th><th>Qtde</th><th>Vl Unit</th><th>Vl Total</th><th>BC ICMS</th><th>Vl ICMS</th><th>Alq ICMS(%)</th><th>Vl IPI</th><th>Alq IPI(%)</th>`;
+        html += `</tr>`;
+        html += `</thead><tbody>`;
+        
+        for (let det of detList) {
+            const prod = det.getElementsByTagName('prod')[0];
+            if (!prod) continue;
+            
+            // CORREÇÃO: Busca ICMS e IPI diretamente
+            let icmsNode = null;
+            let ipiNode = null;
+            
+            const impostoNode = prod.getElementsByTagName('imposto')[0];
+            if (impostoNode) {
+                const icmsGroup = impostoNode.getElementsByTagName('ICMS')[0];
+                if (icmsGroup) {
+                    // Procura por ICMS00, ICMS20, etc.
+                    const tipos = ['ICMS00', 'ICMS20', 'ICMS40', 'ICMS51', 'ICMS60', 'ICMS90'];
+                    for (let tipo of tipos) {
+                        const node = icmsGroup.getElementsByTagName(tipo)[0];
+                        if (node) {
+                            icmsNode = node;
+                            break;
+                        }
+                    }
+                }
+                
+                const ipiGroup = impostoNode.getElementsByTagName('IPI')[0];
+                if (ipiGroup) {
+                    ipiNode = ipiGroup.getElementsByTagName('IPITrib')[0] || ipiGroup.getElementsByTagName('IPINT')[0];
+                }
+            }
+            
+            const vBCItem = icmsNode ? getTagTextFromNode(icmsNode, 'vBC') : '';
+            const vICMSItem = icmsNode ? getTagTextFromNode(icmsNode, 'vICMS') : '';
+            const pICMSItem = icmsNode ? getTagTextFromNode(icmsNode, 'pICMS') : '';
+            const vIPIItem = ipiNode ? getTagTextFromNode(ipiNode, 'vIPI') : '';
+            const pIPIItem = ipiNode ? getTagTextFromNode(ipiNode, 'pIPI') : '';
+            
+            html += `<tr>`;
+            html += `<td>${getTagTextFromNode(prod, 'cProd')}</td>`;
+            html += `<td>${getTagTextFromNode(prod, 'xProd')} ${getTagTextFromNode(prod, 'infAdProd') ? '(' + getTagTextFromNode(prod, 'infAdProd') + ')' : ''}</td>`;
+            html += `<td>${getTagTextFromNode(prod, 'NCM')}</td>`;
+            html += `<td>${getTagTextFromNode(prod, 'CFOP')}</td>`;
+            html += `<td>${getTagTextFromNode(prod, 'uCom')}</td>`;
+            html += `<td class="text-right">${getTagTextFromNode(prod, 'qCom')}</td>`;
+            html += `<td class="text-right">${formatMoney(getTagTextFromNode(prod, 'vUnCom'))}</td>`;
+            html += `<td class="text-right">${formatMoney(getTagTextFromNode(prod, 'vProd'))}</td>`;
+            html += `<td class="text-right">${formatMoney(vBCItem)}</td>`;
+            html += `<td class="text-right">${formatMoney(vICMSItem)}</td>`;
+            html += `<td class="text-right">${pICMSItem || '0'}将`;
+            html += `<td class="text-right">${formatMoney(vIPIItem)}</td>`;
+            html += `<td class="text-right">${pIPIItem || '0'}将`;
+            html += `<tr>`;
+        }
+        html += `</tbody>`;
+        html += `</table>`;
+
+        // 9 - DADOS ADICIONAIS
+        if (infAdic) {
+            const infCpl = getTagTextFromNode(infAdic, 'infCpl');
+            const infAdFisco = getTagTextFromNode(infAdic, 'infAdFisco');
+            if (infCpl || infAdFisco) {
+                html += `<div class="section-title">DADOS ADICIONAIS</div>`;
+                if (infCpl) html += `<div class="info-row"><span class="info-label">INFORMAÇÕES COMPLEMENTARES:</span><span>${infCpl}</span></div>`;
+                if (infAdFisco) html += `<div class="info-row"><span class="info-label">INFORMAÇÕES AO FISCO:</span><span>${infAdFisco}</span></div>`;
+            }
+        }
+
+        // RODAPÉ
+        const nNF = getTagTextFromNode(ide, 'nNF');
+        const serie = getTagTextFromNode(ide, 'serie');
+        
+        html += `<div class="footer-dashed">`;
+        html += `DANFE - Nota Fiscal Eletrônica Nº ${nNF} - Série ${serie} | Emitido por DANFE Viewer - ${new Date().toLocaleString('pt-BR')}`;
+        html += `</div>`;
+        
+        html += `</div>`;
+
+        danfeContent.innerHTML = html;
+        danfeContainer.style.display = 'block';
+
+        // Armazenar referência para o PDF
+        currentDanfeElement = document.getElementById('danfePrint');
+        if (!currentDanfeElement) {
+            currentDanfeElement = document.querySelector('.danfe');
+        }
+
+        // Gerar código de barras
+        setTimeout(() => {
+            try {
+                JsBarcode(`#${barcodeDivId}`, chave, {
+                    format: "CODE128",
+                    width: 1.5,
+                    height: 35,
+                    displayValue: false
+                });
+            } catch(e) { console.warn("Barcode error:", e); }
+        }, 100);
+
+        statusBadge.innerHTML = isAutorizado ? 
+            '<span style="color:#10b981;"><i class="fas fa-check-circle"></i> NFe Autorizada</span>' : 
+            '<span style="color:#ef4444;"><i class="fas fa-exclamation-triangle"></i> NFe NÃO Autorizada</span>';
+    }
+</script>
+</body>
+</html>
