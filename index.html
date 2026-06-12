@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -24,6 +23,8 @@
             --btn-bg: #4da6ff;
             --btn-hover: #3399ff;
             --grid-border: #d9e8f5;
+            --dropzone-bg: #eef5fa;
+            --dropzone-border: #4da6ff;
         }
 
         body { font-family: Arial, sans-serif; background-color: var(--bg-page); color: var(--text-color); margin: 0; padding: 20px; }
@@ -33,7 +34,42 @@
         
         /* Controles de Arquivo */
         .file-controls { margin-bottom: 20px; padding: 15px; background: #eef5fa; border: 1px dashed var(--border-color); border-radius: 5px; text-align: center; }
-        input[type="file"] { font-size: 16px; cursor: pointer; }
+        
+        /* Área de Drop Zone */
+        .drop-zone {
+            border: 2px dashed var(--dropzone-border);
+            border-radius: 8px;
+            background-color: var(--dropzone-bg);
+            padding: 20px;
+            margin-top: 15px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .drop-zone.drag-over {
+            background-color: #d4e6f1;
+            border-color: #0066cc;
+            border-style: solid;
+            transform: scale(1.01);
+        }
+        .drop-zone-content {
+            pointer-events: none;
+        }
+        .drop-zone-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        .drop-zone-text {
+            color: #0055a4;
+            font-size: 14px;
+        }
+        .drop-zone-subtext {
+            color: #666;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        
+        input[type="file"] { font-size: 16px; cursor: pointer; margin-top: 10px; }
 
         /* Dados Gerais Topo */
         .dados-gerais-topo { margin-bottom: 20px; }
@@ -107,7 +143,18 @@
     
     <div class="file-controls no-print">
         <label for="xmlFile" style="display:block; margin-bottom:10px; font-size:16px;"><strong>Selecione o arquivo XML da NF-e para visualizar os dados completos:</strong></label>
-        <input type="file" id="xmlFile" accept=".xml">
+        
+        <!-- Área de Drop Zone -->
+        <div id="dropZone" class="drop-zone">
+            <div class="drop-zone-content">
+                <div class="drop-zone-icon">📂</div>
+                <div class="drop-zone-text"><strong>Arraste e solte arquivos XML aqui</strong></div>
+                <div class="drop-zone-subtext">ou clique para selecionar</div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 10px; font-size: 12px; color: #666;">ou</div>
+        <input type="file" id="xmlFile" accept=".xml" style="margin-top: 10px;">
     </div>
 
     <!-- Dados Gerais Topo -->
@@ -229,7 +276,7 @@
     <!-- 5. Totais -->
     <div id="tab-totais" class="tab-content">
         <div class="fieldset">
-            <div class="fieldset-title">ICMS</div>
+            <div class="fieldset-title">Totais</div>
             <div class="data-grid data-grid-small">
                 <div class="data-item"><span class="label">Base de Cálculo ICMS</span><div class="value" id="tot-vbc"></div></div>
                 <div class="data-item"><span class="label">Valor do ICMS</span><div class="value" id="tot-vicms"></div></div>
@@ -401,12 +448,17 @@
             return new Date(val).toLocaleString('pt-BR');
         } catch(e) { return val; }
     }
-
-    // Leitura do Arquivo XML
-    document.getElementById('xmlFile').addEventListener('change', function(e) {
-        var file = e.target.files[0];
+    
+    // Função principal para carregar e processar o XML
+    function loadXMLFromFile(file) {
         if (!file) return;
-
+        
+        // Verificar se é um arquivo XML
+        if (!file.name.toLowerCase().endsWith('.xml')) {
+            alert('Por favor, selecione um arquivo XML válido.');
+            return;
+        }
+        
         var reader = new FileReader();
         reader.onload = function(e) {
             try {
@@ -414,8 +466,15 @@
                 var parser = new DOMParser();
                 var xmlDoc = parser.parseFromString(contents, "text/xml");
                 
+                // Verificar se o XML é válido (não tem erro de parsing)
+                var parserError = xmlDoc.getElementsByTagName('parsererror');
+                if (parserError.length > 0) {
+                    alert('Erro: O arquivo não parece ser um XML válido.');
+                    return;
+                }
+                
                 popularDados(xmlDoc);
-
+                
                 document.getElementById('dadosGeraisTopo').style.display = 'block';
                 document.getElementById('tabContainer').style.display = 'flex';
                 document.getElementById('actionsContainer').style.display = 'block';
@@ -424,7 +483,75 @@
                 alert("Erro ao ler o arquivo XML: " + err.message);
             }
         };
+        reader.onerror = function() {
+            alert('Erro ao ler o arquivo. Tente novamente.');
+        };
         reader.readAsText(file);
+    }
+    
+    // Evento de seleção de arquivo via input
+    document.getElementById('xmlFile').addEventListener('change', function(e) {
+        var file = e.target.files[0];
+        loadXMLFromFile(file);
+    });
+    
+    // --- Configuração do Drag and Drop ---
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('xmlFile');
+    
+    // Prevenir comportamento padrão de drag/drop
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+    });
+    
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    // Adicionar highlight visual
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, highlight, false);
+    });
+    
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, unhighlight, false);
+    });
+    
+    function highlight(e) {
+        dropZone.classList.add('drag-over');
+    }
+    
+    function unhighlight(e) {
+        dropZone.classList.remove('drag-over');
+    }
+    
+    // Processar arquivos soltos
+    dropZone.addEventListener('drop', handleDrop, false);
+    
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        
+        if (files.length > 0) {
+            // Pega o primeiro arquivo XML
+            const file = files[0];
+            if (file.type === 'text/xml' || file.name.toLowerCase().endsWith('.xml')) {
+                loadXMLFromFile(file);
+                // Opcional: atualizar o input file também para consistência
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+            } else {
+                alert('Por favor, solte apenas arquivos XML.');
+            }
+        }
+    }
+    
+    // Clicar na drop zone abre o seletor de arquivos
+    dropZone.addEventListener('click', () => {
+        fileInput.click();
     });
 
     // Mapeamentos
